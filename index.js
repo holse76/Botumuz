@@ -27,12 +27,13 @@ const client = new Client({
 
 const PREFIX = '.';
 const YETKILI_ROL_ID = '1522277920083677376'; 
+const HEDEF_SUNUCU_ID = '1522274201539579934'; // Belirttiğin sunucu ID'si
 const KANAL_ADI = 'gelen-giden';
 
 const mevkiler = ["SNT", "GK", "KL", "OSS", "OS", "SGK", "SLK", "SĞK", "DEF", "STP", "SLB", "SGB", "SĞB"];
 const bayraklar = ["🇹🇷", "🇩🇪", "🇧🇷", "🇦🇷", "🇫🇷", "🇮🇹", "🇪🇸", "🇳🇱", "🇵🇹", "🇬🇧"];
 
-// Sunucudaki oyuncuların veritabanı deposu
+// Oyuncu veritabanı deposu
 const oyuncuKartlari = new Map(); 
 const ekonomi = new Map(); 
 const antrenmanDurumu = new Map(); 
@@ -45,11 +46,16 @@ function bakiyeGetir(userId) {
     return ekonomi.get(userId);
 }
 
+// Oyuncu için rastgele piyasa değeri üreten fonksiyon (Örn: 45M €, 120M €)
+function degerUret() {
+    const milyon = Math.floor(Math.random() * 140) + 10; // 10M ile 150M arası
+    return `${mỹlon}M €`;
+}
+
 client.once('ready', async () => {
     console.log(`${client.user.tag} aktif!`);
-    const guildId = client.guilds.cache.first()?.id; 
-    if (guildId) {
-        const guild = client.guilds.cache.get(guildId);
+    const guild = client.guilds.cache.get(HEDEF_SUNUCU_ID);
+    if (guild) {
         await guild.commands.set([{ name: 'ticket-kurulum', description: 'Butonlu bilet sistemi kurar.' }]);
     }
 });
@@ -58,14 +64,21 @@ client.once('ready', async () => {
 // 🔄 OTOMATİK GİREN OYUNCU LOGU
 // ==========================================
 client.on('guildMemberAdd', async (member) => {
+    if (member.guild.id !== HEDEF_SUNUCU_ID) return;
     const kanal = member.guild.channels.cache.find(c => c.name === KANAL_ADI);
     if (!kanal) return;
 
     const atananMevki = mevkiler[Math.floor(Math.random() * mevkiler.length)];
     const atananBayrak = bayraklar[Math.floor(Math.random() * bayraklar.length)];
+    const piyasaDegeri = degerUret();
     
-    // Oyuncuyu hafızaya kaydediyoruz
-    oyuncuKartlari.set(member.id, { username: member.user.username, mevki: atananMevki, bayrak: atananBayrak });
+    // Oyuncunun ismini direkt Discord kullanıcı adından çekiyoruz (Osimhen, Icardi vb. neyse o çıkacak)
+    oyuncuKartlari.set(member.id, { 
+        username: member.user.username, 
+        mevki: atananMevki, 
+        bayrak: atananBayrak,
+        deger: piyasaDegeri
+    });
 
     const embed = new EmbedBuilder()
         .setTitle('✨ KULÜBE YENİ OYUNCU KATILDI ✨')
@@ -73,7 +86,8 @@ client.on('guildMemberAdd', async (member) => {
         .addFields(
             { name: '📋 Oyuncu Adı', value: `\`\`\`${member.user.username}\`\`\``, inline: false },
             { name: '🛡️ Atanan Mevki', value: `\`\`\`${atananMevki}\`\`\``, inline: true },
-            { name: '🌍 Ülke / Bayrak', value: `\`\`\`${atananBayrak}\`\`\``, inline: true }
+            { name: '🌍 Ülke / Bayrak', value: `\`\`\`${atananBayrak}\`\`\``, inline: true },
+            { name: '💰 Piyasa Değeri', value: `\`\`\`${piyasaDegeri}\`\`\``, inline: true }
         )
         .setImage('https://i.ibb.co/VMRgkhF/manuel-neuer-afis.png') 
         .setColor('#10f091')
@@ -87,6 +101,7 @@ client.on('guildMemberAdd', async (member) => {
 // 🔄 OTOMATİK ÇIKAN OYUNCU LOGU
 // ==========================================
 client.on('guildMemberRemove', async (member) => {
+    if (member.guild.id !== HEDEF_SUNUCU_ID) return;
     const kanal = member.guild.channels.cache.find(c => c.name === KANAL_ADI);
     if (!kanal) return;
 
@@ -95,11 +110,7 @@ client.on('guildMemberRemove', async (member) => {
     const embed = new EmbedBuilder()
         .setTitle('❌ SÖZLEŞME FESHİ / AYRILIK ❌')
         .setDescription(`**${member.user.username}** kulüpten ve sunucudan ayrıldı.`)
-        .addFields(
-            { name: '📋 Ayrılan Oyuncu', value: `\`\`\`${member.user.username}\`\`\``, inline: false }
-        )
         .setColor('#ff3333')
-        .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
         .setFooter({ text: `Kalan Kadro: ${member.guild.memberCount} Kişi` });
 
     kanal.send({ embeds: [embed], allowedMentions: { users: [] } });
@@ -109,13 +120,13 @@ client.on('guildMemberRemove', async (member) => {
 // 💬 MESAJ KOMUTLARI
 // ==========================================
 client.on('messageCreate', async (message) => {
-    if (message.author.bot || !message.content.startsWith(PREFIX)) return;
+    if (message.author.bot || !message.content.startsWith(PREFIX) || message.guild?.id !== HEDEF_SUNUCU_ID) return;
 
     const args = message.content.slice(PREFIX.length).trim().split(/ +/);
     const command = args.shift().toLowerCase();
     const userId = message.author.id;
 
-    // --- 🔍 Gelişmiş .ara Komutu ---
+    // --- 🔍 Tam İstediğin Formatta .ara Komutu ---
     if (command === 'ara') {
         const arananMevki = args[0]?.toUpperCase();
 
@@ -123,48 +134,47 @@ client.on('messageCreate', async (message) => {
             return message.reply({ content: '❌ **Eksik Kullanım!** Doğru format: `.ara [MEVKİ]` (Örn: `.ara SNT`)', allowedMentions: { repliedUser: false } });
         }
 
-        // Sunucuda bot açıkken o mevkiye atanmış herkesi filtreliyoruz
         const bulunanOyuncular = [];
-        oyuncuKartlari.forEach((deger, anahtar) => {
+        oyuncuKartlari.forEach((deger) => {
             if (deger.mevki === arananMevki) {
-                bulunanOyuncular.push(`• **${deger.username}** ${deger.bayrak}`);
+                // İstediğin satır formatı: İsim | Bayrak | Mevki | Değeri
+                bulunanOyuncular.push(`🏃‍♂️ **${deger.username}** | ${deger.bayrak} | \`${deger.mevki}\` | 💰 **${deger.deger}**`);
             }
         });
 
-        // Eğer o mevkide kayıtlı kimse yoksa listeyi boş göstermemek için test amaçlı sahte veri/örnek ekleyelim veya boş diyelim
         let listeMesaji = bulunanOyuncular.join('\n');
+        
+        // Sunucuda bot yeni açıldığında liste boş kalmasın diye test/örnek veriler (Sistem oturduğunda bunu silebilirsin kanka)
         if (bulunanOyuncular.length === 0) {
-            listeMesaji = `*Bu mevkide kayıtlı oyuncu bulunamadı.*\n*(Örnek Görünüm: Osimhen 🇳🇬, Icardi 🇦🇷)*`;
+            listeMesaji = `🏃‍♂️ **Osimhen** | 🇳🇬 | \`${arananMevki}\` | 💰 **110M €**\n🏃‍♂️ **Mauro** | 🇦🇷 | \`${arananMevki}\` | 💰 **45M €**\n🏃‍♂️ **N.lang** | 🇳🇱 | \`${arananMevki}\` | 💰 **25M €**\n🏃‍♂️ **Mbappe** | 🇫🇷 | \`${arananMevki}\` | 💰 **180M €**\n🏃‍♂️ **Ronaldo** | 🇵🇹 | \`${arananMevki}\` | 💰 **15M €**\n\n*(Yukarıdakiler örnek listedir. Yeni oyuncular girdikçe kendi isimleriyle otomatik eklenecektir!)*`;
         }
 
         const embed = new EmbedBuilder()
-            .setTitle(`🏃‍♂️ MEVKİ ARAMA: ${arananMevki}`)
-            .setDescription(`Sunucuda **${arananMevki}** mevkisinde oynayan tüm aktif oyuncular aşağıda listelenmiştir:\n\n${listeMesaji}`)
-            .setColor('#00bfff')
-            .setImage('https://i.ibb.co/VMRgkhF/manuel-neuer-afis.png') // Kaliteli alt afiş görseli
+            .setTitle(`📊 REKABETÇİ PAZAR: ${arananMevki} MEVKİSİ`)
+            .setDescription(`Sunucumuzda yer alan tüm aktif **${arananMevki}** oyuncularının listesi:\n\n${listeMesaji}`)
+            .setColor('#2f3136')
+            .setImage('https://i.ibb.co/VMRgkhF/manuel-neuer-afis.png') 
             .setThumbnail(message.guild.iconURL({ dynamic: true }))
-            .setFooter({ text: `${message.author.username} tarafından sorgulandı.`, iconURL: message.author.displayAvatarURL() });
+            .setFooter({ text: `${message.author.username} tarafından pazar sorgulandı.`, iconURL: message.author.displayAvatarURL() });
 
-        // allowedMentions: { repliedUser: false } -> Kimseyi etiketleyip rahatsız etmez, tertemiz isim yazar!
         return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
     }
 
-    // --- l.yardim Komutu ---
+    // --- .yardim Komutu ---
     if (command === 'yardim' || command === 'yardım') {
         const embed = new EmbedBuilder()
             .setTitle('📚 BOT KOMUT REHBERİ')
-            .setDescription('Tüm komutlar listelenmiştir. Rahat okumanız için kategorilere ayrılmıştır:')
+            .setDescription('Tüm aktif komut şemaları aşağıda listelenmiştir:')
             .addFields(
-                { name: '⚽ Futbol Sistemleri', value: `\`\`\`.ara [mevki]\`\`\` -> O mevkideki tüm oyuncuları listeler.\n\`\`\`.ant\`\`\` -> Antrenman seviyenizi artırır.\n\`\`\`.pen\`\`\` -> Şansınıza penaltı atışı yaparsınız.`, inline: false },
-                { name: '💰 Ekonomi Menüsü', value: `\`\`\`.bal\`\`\` -> Nakit ve Banka paranızı gösterir.\n\`\`\`.send @kullanici [miktar]\`\`\` -> Para transfer eder.`, inline: false },
-                { name: '🛡️ Yetkili Alanı', value: `\`\`\`.paraekle @kullanici [miktar]\`\`\` -> Para ekler.\n\`\`\`.paracikar @kullanici [miktar]\`\`\` -> Para siler.\n\`\`\`/ticket-kurulum\`\`\` -> Destek butonlarını oluşturur.`, inline: false }
+                { name: '⚽ Futbol Pazarı', value: `\`\`\`.ara [mevki]\`\`\` -> Seçtiğiniz mevkideki tüm oyuncuları değerleriyle yan yana listeler.\n\`\`\`.ant\`\`\` -> Antrenman gelişim puanı sağlar.\n\`\`\`.pen\`\`\` -> Penaltı vuruşu testidir.`, inline: false },
+                { name: '💰 Ekonomi Kontrol', value: `\`\`\`.bal\`\`\` -> Nakit durumunu gösterir.\n\`\`\`.send @kullanici [miktar]\`\`\` -> Nakit gönderir.`, inline: false }
             )
             .setColor('#5865F2');
 
         return message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
     }
 
-    // --- .ant, .pen, .bal, .paraekle vb. (Stabil Komutlar) ---
+    // --- Sabit Sistem Komutları (.ant, .pen, .bal vb.) ---
     if (command === 'ant') {
         const simdi = Date.now();
         const cd = cooldowns.get(`${userId}-ant`) || 0;
@@ -173,7 +183,7 @@ client.on('messageCreate', async (message) => {
         mevcutSkor += 1;
         if (mevcutSkor >= 10) {
             antrenmanDurumu.set(userId, 0);
-            message.reply({ content: "🏋️ **Antrenman 10/10 oldu ve sıfırlandı!**", allowedMentions: { repliedUser: false } });
+            message.reply({ content: "🏋️ **Antrenman tamamlanıp sıfırlandı!**", allowedMentions: { repliedUser: false } });
         } else {
             antrenmanDurumu.set(userId, mevcutSkor);
             message.reply({ content: `🏋️ Gelişim: **${mevcutSkor}/10**`, allowedMentions: { repliedUser: false } });
@@ -195,7 +205,7 @@ client.on('messageCreate', async (message) => {
     if (command === 'bal') {
         const userPara = bakiyeGetir(userId);
         const embed = new EmbedBuilder()
-            .setTitle(`💰 Bakiye Durumu`)
+            .setTitle(`💰 Cüzdan`)
             .addFields({ name: '💵 Cash', value: `\`\`\`${userPara.cash} 🪙\`\`\``, inline: true }, { name: '🏦 Banka', value: `\`\`\`${userPara.bank} 🪙\`\`\``, inline: true })
             .setColor('#00ff88');
         message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
@@ -207,7 +217,7 @@ client.on('messageCreate', async (message) => {
         const miktar = parseInt(args[1]);
         if (!hedef || isNaN(miktar)) return;
         bakiyeGetir(hedef.id).cash += miktar;
-        message.reply({ content: `✅ Eklendi.`, allowedMentions: { users: [] } });
+        message.reply({ content: `✅ İşlem başarılı.`, allowedMentions: { users: [] } });
     }
 
     if (command === 'paracikar') {
@@ -217,7 +227,7 @@ client.on('messageCreate', async (message) => {
         if (!hedef || isNaN(miktar)) return;
         const p = bakiyeGetir(hedef.id);
         p.cash = Math.max(0, p.cash - miktar);
-        message.reply({ content: `📉 Çıkarıldı.`, allowedMentions: { users: [] } });
+        message.reply({ content: `📉 İşlem başarılı.`, allowedMentions: { users: [] } });
     }
 
     if (command === 'send') {
@@ -232,8 +242,10 @@ client.on('messageCreate', async (message) => {
     }
 });
 
-// --- TICKET SİSTEMİ INTERACTION (Stabil) ---
+// --- BUTTON TICKET INTERACTION ---
 client.on('interactionCreate', async (interaction) => {
+    if (interaction.guild?.id !== HEDEF_SUNUCU_ID) return;
+
     if (interaction.isChatInputCommand() && interaction.commandName === 'ticket-kurulum') {
         if (!interaction.member.roles.cache.has(YETKILI_ROL_ID) && !interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) return;
         const row = new ActionRowBuilder().addComponents(
@@ -241,21 +253,21 @@ client.on('interactionCreate', async (interaction) => {
             new ButtonBuilder().setCustomId('ticket_reklam').setLabel('📢 Reklam').setStyle(ButtonStyle.Primary),
             new ButtonBuilder().setCustomId('ticket_cekilis').setLabel('🎉 Çekiliş').setStyle(ButtonStyle.Success)
         );
-        const embed = new EmbedBuilder().setTitle('🎫 Destek Sistemi').setDescription('Bilet açmak için butonları kullanın.').setColor('#2f3136');
-        await interaction.reply({ content: 'Kuruldu.', ephemeral: true });
+        const embed = new EmbedBuilder().setTitle('🎫 Destek Paneli').setDescription('Gerekli birim için butona tıklayın.').setColor('#2f3136');
+        await interaction.reply({ content: 'Sistem aktifleştirildi.', ephemeral: true });
         await interaction.channel.send({ embeds: [embed], components: [row] });
     }
 
     if (interaction.isButton()) {
         if (interaction.customId === 'ticket_kapat') {
-            await interaction.reply({ content: 'Siliniyor...' });
+            await interaction.reply({ content: 'Bilet kapatılıyor...' });
             setTimeout(async () => { try { await interaction.channel.delete(); } catch(e){} }, 5000);
             return;
         }
         if (!interaction.customId.startsWith('ticket_')) return;
-        await interaction.reply({ content: 'Açılıyor...', ephemeral: true });
+        await interaction.reply({ content: 'Kanal hazırlanıyor...', ephemeral: true });
         const kanal = await interaction.guild.channels.create({
-            name: `ticket-${interaction.user.username}`,
+            name: `destek-${interaction.user.username}`,
             type: ChannelType.GuildText,
             permissionOverwrites: [
                 { id: interaction.guild.roles.everyone.id, deny: [PermissionsBitField.Flags.ViewChannel] },
@@ -263,7 +275,7 @@ client.on('interactionCreate', async (interaction) => {
                 { id: YETKILI_ROL_ID, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] }
             ]
         });
-        const embed = new EmbedBuilder().setTitle('🎫 Destek').setDescription('Yetkililer sizinle ilgilenecektir.').setColor('#00aaff');
+        const embed = new EmbedBuilder().setTitle('🎫 Destek Odası').setDescription('Talebiniz alınmıştır, yetkililer burada toplanıyor.').setColor('#00aaff');
         const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('ticket_kapat').setLabel('🔒 Kapat').setStyle(ButtonStyle.Secondary));
         await kanal.send({ embeds: [embed], components: [row] });
     }
