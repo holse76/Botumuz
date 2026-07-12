@@ -1,0 +1,15 @@
+{
+  "name": "discord-gelismis-bot",
+  "version": "1.0.0",
+  "description": "Railway uyumlu gelişmiş ekonomi ve ticket botu",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.14.1"
+  },
+  "engines": {
+    "node": ">=16.x"
+  }
+}
