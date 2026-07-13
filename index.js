@@ -94,57 +94,63 @@ client.on('messageCreate', async (message) => {
         return message.reply({ embeds: [embed] });
     }
 
-    // .antrenman veya .ant komutu
+                // .antrenman komutu
 if (command === 'antrenman' || command === 'idman') {
-    // Mesajda etiketlenen oyuncu veya komutu yazan kişi
     const hedefOyuncu = message.mentions.users.first() || message.author;
     const oyuncuId = hedefOyuncu.id;
     const dosyaYolu = './antrenmanlar.json';
 
-    // 1. JSON Dosyasından Mevcut Verileri Güvenli Bir Şekilde Oku
+    // 1. fs modülünü yerel olarak sağlama alalım (Yukarıda unutulduysa bile hata vermez)
+    const fsModul = require('fs');
+
+    // 2. Dosya kontrolü ve oluşturma
     let tumAntrenmanlar = {};
-    if (fs.existsSync(dosyaYolu)) {
+    if (fsModul.existsSync(dosyaYolu)) {
         try {
-            tumAntrenmanlar = JSON.parse(fs.readFileSync(dosyaYolu, 'utf8'));
+            const dosyaIcerigi = fsModul.readFileSync(dosyaYolu, 'utf8');
+            tumAntrenmanlar = dosyaIcerigi ? JSON.parse(dosyaIcerigi) : {};
         } catch (err) {
             tumAntrenmanlar = {};
         }
     }
 
-    // 2. Oyuncunun profilini kontrol et, yoksa sıfırdan oluştur
+    // 3. Oyuncu kontrolü
     if (!tumAntrenmanlar[oyuncuId]) {
         tumAntrenmanlar[oyuncuId] = { seviye: 1, ilerleme: 0 };
     }
 
-    // 3. İlerlemeyi KESİNLİKLE GERİYE DEĞİL, SADECE İLERİYE GÖTÜR (+1)
+    // 4. İlerlemeyi kesin olarak +1 arttır
     tumAntrenmanlar[oyuncuId].ilerleme += 1;
-    const hedefIlerleme = 10; // Her seviye için gereken antrenman
+    const hedefIlerleme = 10;
     let seviyeAtladiMi = false;
 
-    // 4. Eğer 10/10 olduysa seviyeyi arttır ve sayacı temizle
+    // 5. Seviye atlama kontrolü
     if (tumAntrenmanlar[oyuncuId].ilerleme >= hedefIlerleme) {
         tumAntrenmanlar[oyuncuId].seviye += 1;
         tumAntrenmanlar[oyuncuId].ilerleme = 0;
         seviyeAtladiMi = true;
     }
 
-    // 5. Güncel verileri dosyaya kalıcı olarak KAYDET (Bot kapansa da silinmez)
-    fs.writeFileSync(dosyaYolu, JSON.stringify(tumAntrenmanlar, null, 4));
+    // 6. Dosyaya güvenli kaydet
+    try {
+        fsModul.writeFileSync(dosyaYolu, JSON.stringify(tumAntrenmanlar, null, 4));
+    } catch (writeErr) {
+        console.error("Dosya yazma hatası:", writeErr);
+    }
 
-    // 6. Discord'a Sonucu Gönder
+    // 7. Mesaj Gönderme
     if (seviyeAtladiMi) {
         const seviyeEmbed = new EmbedBuilder()
             .setTitle('⚡ SEVİYE ATLADI!')
-            .setDescription(`🎉 Müjde! ${hedefOyuncu} antrenman programını başarıyla tamamladı ve **Seviye ${tumAntrenmanlar[oyuncuId].seviye}** oldu!`)
+            .setDescription(`🎉 ${hedefOyuncu} antrenmanı tamamlayarak **Seviye ${tumAntrenmanlar[oyuncuId].seviye}** oldu!`)
             .setColor('#2ecc71');
-        return message.reply({ embeds: [seviyeEmbed] });
+        return message.reply({ embeds: [seviyeEmbed] }).catch(console.error);
     } else {
         const antrenmanEmbed = new EmbedBuilder()
             .setTitle('💪 ANTRENMAN BAŞARILI')
-            .setDescription(`🏃‍♂️ ${hedefOyuncu} sıkı bir idman daha çıkardı!\n\n📊 **Mevcut Seviye:** \` ${tumAntrenmanlar[oyuncuId].seviye} \` \n📈 **İlerleme Durumu:** \`[ ${tumAntrenmanlar[oyuncuId].ilerleme} / ${hedefIlerleme} ]\``)
-            .setFooter({ text: 'Geri gitme düzeltildi. Hedefe doğru emin adımlarla!' })
+            .setDescription(`🏃‍♂️ ${hedefOyuncu} çalışmaya devam ediyor.\n\n📊 **Mevcut Seviye:** \`${tumAntrenmanlar[oyuncuId].seviye}\` \n📈 **İlerleme Durumu:** \`[ ${tumAntrenmanlar[oyuncuId].ilerleme} / ${hedefIlerleme} ]\``)
             .setColor('#3498db');
-        return message.reply({ embeds: [antrenmanEmbed] });
+        return message.reply({ embeds: [antrenmanEmbed] }).catch(console.error);
     }
 }
 
