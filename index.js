@@ -94,7 +94,6 @@ client.on('messageCreate', async (message) => {
         return message.reply({ embeds: [embed] });
     }
 
-    // --- .ant Komutu (Her saat 1 kez) ---
     // .antrenman veya .ant komutu
 if (command === 'antrenman' || command === 'idman') {
     // Mesajda etiketlenen oyuncu veya komutu yazan kişi
