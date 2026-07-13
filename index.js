@@ -103,7 +103,13 @@ if (command === 'antrenman' || command === 'idman') {
     const oyuncuId = hedefOyuncu.id;
     const dosyaYolu = './antrenmanlar.json';
     const fsModul = require('fs');
-
+    
+           if (simdi < cd) {
+            const kalan = Math.ceil((cd - simdi) / 1000 / 60);
+            return message.reply(`Bu komutu tekrar kullanmak için **${kalan} dakika** beklemelisin.`);
+}
+    
+    
     let tumAntrenmanlar = {};
     if (fsModul.existsSync(dosyaYolu)) {
         try {
