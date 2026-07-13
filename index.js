@@ -10,6 +10,7 @@ const {
     ChannelType 
 } = require('discord.js');
 const http = require('http');
+const fs = require('fs'); // Dosya işlemleri için eklendi
 
 // Railway 7/24 Aktiflik Sunucusu
 http.createServer((req, res) => {
@@ -31,7 +32,6 @@ const YETKILI_ROL_ID = '1522277920083677376'; // Belirttiğin yetkili rol ID'si
 
 // Veritabanı simülasyonları
 const ekonomi = new Map(); // { userId: { cash: 0, bank: 0 } }
-const antrenmanDurumu = new Map(); // { userId: score } (Hatalı boşluk düzeltildi)
 const cooldowns = new Map(); // Cooldown kontrolü için
 
 // Yardımcı Fonksiyonlar (Ekonomi verisi çekme/güncelleme)
@@ -42,11 +42,33 @@ function bakiyeGetir(userId) {
     return ekonomi.get(userId);
 }
 
+// ==========================================
+// ⏰ SAATLİK OTOMATİK ANTRENMAN SAYAÇI (60 DK)
+// ==========================================
 client.once('ready', async () => {
     console.log(`${client.user.tag} aktif!`);
     
+    // Her 60 dakikada bir kayıtlı herkesin antrenman ilerlemesini otomatik 1 arttırır
+    setInterval(() => {
+        const dosyaYolu = './antrenmanlar.json';
+        if (!fs.existsSync(dosyaYolu)) return;
+
+        try {
+            let tumAntrenmanlar = JSON.parse(fs.readFileSync(dosyaYolu, 'utf8'));
+            for (let oyuncuId in tumAntrenmanlar) {
+                tumAntrenmanlar[oyuncuId].ilerleme += 1;
+                if (tumAntrenmanlar[oyuncuId].ilerleme >= 10) {
+                    tumAntrenmanlar[oyuncuId].seviye += 1;
+                    tumAntrenmanlar[oyuncuId].ilerleme = 0;
+                }
+            }
+            fs.writeFileSync(dosyaYolu, JSON.stringify(tumAntrenmanlar, null, 4));
+            console.log("⏰ [SAYAÇ] 60 dakika doldu, antrenmanlar otomatik +1 arttı!");
+        } catch (err) { console.error("Saatlik sayaç hatası:", err); }
+    }, 3600000);
+
     // Slash komutunu (bilet sistemi için) Discord'a kaydediyoruz
-    const guildId = client.guilds.cache.first()?.id; // Botun olduğu ilk sunucuya kaydeder
+    const guildId = client.guilds.cache.first()?.id; 
     if (guildId) {
         const guild = client.guilds.cache.get(guildId);
         await guild.commands.set([
@@ -54,155 +76,92 @@ client.once('ready', async () => {
                 name: 'ticket-kurulum',
                 description: 'Butonlu ticket sistemini kurar.',
             }
-        ]);
+        ]).catch(() => {});
     }
 });
 
 client.on('messageCreate', async (message) => {
-    if (message.author.bot || !message.content.startsWith(PREFIX)) return;
+    if (message.author.bot) return;
+
+    // --- .yardim veya -yardim Komutu ---
+    if (message.content.trim() === '.yardim' || message.content.trim() === '-yardim' || message.content.trim() === '-yardım' || message.content.trim() === '.yardım') {
+        const embed = new EmbedBuilder()
+            .setTitle('📚 BOT SİSTEM REHBERİ')
+            .setDescription(`Merhaba **${message.author.username}**, sunucudaki aktif komutlar aşağıda listelenmiştir:`)
+            .addFields(
+                { name: '🏋️‍♂️ Antrenman & Kadro', value: '`.ant` (İdman yapar) | `.ekle @kisi MEVKI` (Kadroya ekler)', inline: false },
+                { name: '⚽ Futbol / Eğlence', value: '`.pen` (Penaltı atışı kullanırsınız)', inline: false },
+                { name: '💰 Ekonomi Komutları', value: '`.bal` (Bakiyeni gösterir) | `.send @kisi miktar` (Para gönderir)', inline: false },
+                { name: '⚙️ Yetkili Komutları', value: '`.paraekle @kisi miktar` | `.paracikar @kisi miktar` | `/ticket-kurulum`', inline: false }
+            )
+            .setColor('#3498db');
+        return message.reply({ embeds: [embed] });
+    }
+
+    if (!message.content.startsWith(PREFIX)) return;
 
     const args = message.content.slice(PREFIX.length).trim().split(/ +/);
     const command = args.shift().toLowerCase();
     const userId = message.author.id;
 
-    // --- 📚 .yardim / .yardım Komutu ---
-    if (command === 'yardim' || command === 'yardım') {
-        const embed = new EmbedBuilder()
-            .setTitle('📚 BOT KOMUT REHBERİ')
-            .setDescription(`Merhaba **${message.author.username}**, sunucudaki tüm aktif komutlar aşağıda listelenmiştir:`)
-            .addFields(
-                { 
-                    name: '⚽ Futbol & Eğlence', 
-                    value: `\`\`\`.ant\`\`\` -> Saatlik antrenman yapar (Gelişim 10/10 olunca sıfırlanır).\n\`\`\`.pen\`\`\` -> Şansınıza bağlı olarak penaltı atışı kullanırsınız.`, 
-                    inline: false 
-                },
-                { 
-                    name: '💰 Ekonomi Sistemi', 
-                    value: `\`\`\`.bal\`\`\` -> Nakit (Cash) ve Banka bakiye durumunuzu gösterir.\n\`\`\`.send @kullanici [miktar]\`\`\` -> Elinizdeki nakit paradan başka bir oyuncuya transfer edersiniz.`, 
-                    inline: false 
-                },
-                { 
-                    name: '🛠️ Yetkili Komutları', 
-                    value: `\`\`\`.paraekle @kullanici [miktar]\`\`\` -> Belirtilen kişiye nakit para verir.\n\`\`\`.paracikar @kullanici [miktar]\`\`\` -> Belirtilen kişinin nakit parasını eksiltir.\n\`\`\`/ticket-kurulum\`\`\` -> Eğlence/Destek bilet panelini o kanala kurar.`, 
-                    inline: false 
-                }
-            )
-            .setColor('#5865F2')
-            .setThumbnail(message.guild.iconURL({ dynamic: true }))
-            .setFooter({ text: `${message.author.tag} tarafından istendi.`, iconURL: message.author.displayAvatarURL({ dynamic: true }) });
-
-        return message.reply({ embeds: [embed] });
-    }
-
-                // ==========================================
-// 🏋️‍♂️ ANTRENMAN SİSTEMİ (BİRLEŞİK SÜRÜM)
-// ==========================================
-
-if (command === 'antrenman' || command === 'idman') {
-    const hedefOyuncu = message.mentions.users.first() || message.author;
-    const oyuncuId = hedefOyuncu.id;
-    const dosyaYolu = './antrenmanlar.json';
-    const fsModul = require('fs');
-    
-           if (simdi < cd) {
+    // --- .ant / .antrenman Komutu (Hatasız & JSON Bağlantılı) ---
+    if (command === 'ant' || command === 'antrenman') {
+        const simdi = Date.now();
+        const cd = cooldowns.get(`${userId}-ant`) || 0;
+        
+        if (simdi < cd) {
             const kalan = Math.ceil((cd - simdi) / 1000 / 60);
             return message.reply(`Bu komutu tekrar kullanmak için **${kalan} dakika** beklemelisin.`);
-}
-    
-    
-    let tumAntrenmanlar = {};
-    if (fsModul.existsSync(dosyaYolu)) {
-        try {
-            const dosyaIcerigi = fsModul.readFileSync(dosyaYolu, 'utf8');
-            tumAntrenmanlar = dosyaIcerigi ? JSON.parse(dosyaIcerigi) : {};
-        } catch (err) { tumAntrenmanlar = {}; }
+        }
+
+        const dosyaYolu = './antrenmanlar.json';
+        let tumAntrenmanlar = {};
+
+        if (fs.existsSync(dosyaYolu)) {
+            try { tumAntrenmanlar = JSON.parse(fs.readFileSync(dosyaYolu, 'utf8')); } catch (e) { tumAntrenmanlar = {}; }
+        }
+
+        if (!tumAntrenmanlar[userId]) tumAntrenmanlar[userId] = { seviye: 1, ilerleme: 0 };
+
+        // İlerlemeyi kesin olarak güvenli şekilde +1 yapıyoruz (Asla geriye gitmez)
+        tumAntrenmanlar[userId].ilerleme += 1;
+        let seviyeAtladiMi = false;
+
+        if (tumAntrenmanlar[userId].ilerleme >= 10) {
+            tumAntrenmanlar[userId].seviye += 1;
+            tumAntrenmanlar[userId].ilerleme = 0;
+            seviyeAtladiMi = true;
+        }
+
+        fs.writeFileSync(dosyaYolu, JSON.stringify(tumAntrenmanlar, null, 4));
+
+        if (seviyeAtladiMi) {
+            message.reply(`🏋️ **TEBRİKLER!** Antrenmanı tamamladın ve **Seviye ${tumAntrenmanlar[userId].seviye}** oldun!`);
+        } else {
+            message.reply(`🏋️ **Antrenman Yapıldı!** Mevcut Gelişim Durumu: **[ ${tumAntrenmanlar[userId].ilerleme} / 10 ]** (Mevcut Seviye: ${tumAntrenmanlar[userId].seviye})`);
+        }
+
+        // 1 saat cooldown
+        cooldowns.set(`${userId}-ant`, simdi + (60 * 60 * 1000));
     }
 
-    if (!tumAntrenmanlar[oyuncuId]) {
-        tumAntrenmanlar[oyuncuId] = { seviye: 1, ilerleme: 0 };
+    // --- .ekle Komutu (Kadroya Oyuncu Ekleme) ---
+    if (command === 'ekle') {
+        const hedef = message.mentions.members.first();
+        const mevki = args[1];
+        if (!hedef || !mevki) return message.reply('Kullanım: `.ekle @kullanici Mevki` (Örn: `.ekle @kisi SNT`)');
+
+        const dosyaYolu = './kadro.json';
+        let kadro = {};
+        if (fs.existsSync(dosyaYolu)) {
+            try { kadro = JSON.parse(fs.readFileSync(dosyaYolu, 'utf8')); } catch (e) { kadro = {}; }
+        }
+
+        kadro[hedef.id] = { isim: hedef.user.username, mevki: mevki.toUpperCase() };
+        fs.writeFileSync(dosyaYolu, JSON.stringify(kadro, null, 4));
+
+        return message.reply(`✅ **${hedef.user.username}** [${mevki.toUpperCase()}] kadroya başarıyla eklendi!`);
     }
-
-    tumAntrenmanlar[oyuncuId].ilerleme += 1;
-    const hedefIlerleme = 10;
-    let seviyeAtladiMi = false;
-
-    if (tumAntrenmanlar[oyuncuId].ilerleme >= hedefIlerleme) {
-        tumAntrenmanlar[oyuncuId].seviye += 1;
-        tumAntrenmanlar[oyuncuId].ilerleme = 0;
-        seviyeAtladiMi = true;
-    }
-
-    try {
-        fsModul.writeFileSync(dosyaYolu, JSON.stringify(tumAntrenmanlar, null, 4));
-    } catch (writeErr) { console.error(writeErr); }
-
-    if (seviyeAtladiMi) {
-        const seviyeEmbed = new EmbedBuilder()
-            .setTitle('⚡ SEVİYE ATLADI!')
-            .setDescription(`🎉 ${hedefOyuncu} antrenmanı tamamlayarak **Seviye ${tumAntrenmanlar[oyuncuId].seviye}** oldu!`)
-            .setColor('#2ecc71');
-        return message.reply({ embeds: [seviyeEmbed] }).catch(console.error);
-    } else {
-        const antrenmanEmbed = new EmbedBuilder()
-            .setTitle('💪 ANTRENMAN BAŞARILI')
-            .setDescription(`🏃‍♂️ ${hedefOyuncu} çalışmaya devam ediyor.\n\n📊 **Mevcut Seviye:** \`${tumAntrenmanlar[oyuncuId].seviye}\` \n📈 **İlerleme Durumu:** \`[ ${tumAntrenmanlar[oyuncuId].ilerleme} / ${hedefIlerleme} ]\``)
-            .setColor('#3498db');
-        return message.reply({ embeds: [antrenmanEmbed] }).catch(console.error);
-    }
-}
-
-// 1. İSTEDİĞİN KISA KOMUT: .ant
-if (command === 'ant') {
-    const fsModul = require('fs');
-    const hedefOyuncu = message.mentions.users.first() || message.author;
-    const oyuncuId = hedefOyuncu.id;
-    const dosyaYolu = './antrenmanlar.json';
-
-    let tumAntrenmanlar = {};
-    if (fsModul.existsSync(dosyaYolu)) {
-        try { tumAntrenmanlar = JSON.parse(fsModul.readFileSync(dosyaYolu, 'utf8')); } catch (e) { tumAntrenmanlar = {}; }
-    }
-
-    if (!tumAntrenmanlar[oyuncuId]) tumAntrenmanlar[oyuncuId] = { seviye: 1, ilerleme: 0 };
-
-    tumAntrenmanlar[oyuncuId].ilerleme += 1;
-    let seviyeAtladiMi = false;
-
-    if (tumAntrenmanlar[oyuncuId].ilerleme >= 10) {
-        tumAntrenmanlar[oyuncuId].seviye += 1;
-        tumAntrenmanlar[oyuncuId].ilerleme = 0;
-        seviyeAtladiMi = true;
-    }
-
-    fsModul.writeFileSync(dosyaYolu, JSON.stringify(tumAntrenmanlar, null, 4));
-
-    if (seviyeAtladiMi) {
-        message.reply(`⚡ **${hedefOyuncu.username}** antrenmanı tamamladı ve **Seviye ${tumAntrenmanlar[oyuncuId].seviye}** oldu!`);
-    } else {
-        message.reply(`💪 Antrenman başarılı! İlerleme: \`[ ${tumAntrenmanlar[oyuncuId].ilerleme} / 10 ]\``);
-    }
-}
-
-// 2. İSTEDİĞİN EKLEME KOMUTU: .ekle
-if (command === 'ekle') {
-    const fsModul = require('fs');
-    const hedef = message.mentions.members.first();
-    const mevki = args[1];
-
-    if (!hedef || !mevki) return message.reply('Kullanım: `.ekle @kullanici Mevki`');
-
-    const dosyaYolu = './kadro.json';
-    let kadro = {};
-    if (fsModul.existsSync(dosyaYolu)) {
-        try { kadro = JSON.parse(fsModul.readFileSync(dosyaYolu, 'utf8')); } catch (e) { kadro = {}; }
-    }
-
-    kadro[hedef.id] = { isim: hedef.user.username, mevki: mevki.toUpperCase() };
-    fsModul.writeFileSync(dosyaYolu, JSON.stringify(kadro, null, 4));
-
-    message.reply(`✅ **${hedef.user.username}** [${mevki.toUpperCase()}] kadroya başarıyla eklendi!`);
-}
-
 
     // --- .pen Komutu (Her saat 1 kez) ---
     if (command === 'pen') {
@@ -216,6 +175,7 @@ if (command === 'ekle') {
 
         const sonuclar = [
             "🧤 **Kurtarış!** Kaleci muhteşem uzandı ve topu çıkardı!",
+            "🛡️ **Defans!** Barajdan veya araya giren savunmadan döndü!",
             "⚽ **GOOOL!** Top tam doksana gitti, harika gol!",
             "📐 **Direkt!** Top çat diye direkten geri döndü!",
             "🏃‍♂️ **Dışarı!** Top az farkla auta çıktı!"
@@ -227,7 +187,7 @@ if (command === 'ekle') {
             .setTitle('⚽ Penaltı Kullanıldı!')
             .setDescription(`**Pozisyon gerçekleşti...**\n\n${rastgeleSonuc}`)
             .setColor('#00ff00')
-            .setImage('https://media.giphy.com/media/uFsS603957L87eFp7M/giphy.gif'); // Temsili futbol gifi
+            .setImage('https://media.giphy.com/media/uFsS603957L87eFp7M/giphy.gif');
 
         message.reply({ embeds: [embed] });
         cooldowns.set(`${userId}-pen`, simdi + (60 * 60 * 1000));
@@ -246,33 +206,7 @@ if (command === 'ekle') {
         message.reply({ embeds: [embed] });
     }
 
-// Sadece sistemi denemek için test komutu
-if (command === 'saatliktetikle') {
-    const fsModul = require('fs');
-    const dosyaYolu = './antrenmanlar.json';
-
-    if (!fsModul.existsSync(dosyaYolu)) return message.reply("Kayıtlı antrenman dosyası bulunamadı.");
-
-    try {
-        let tumAntrenmanlar = JSON.parse(fsModul.readFileSync(dosyaYolu, 'utf8'));
-
-        for (let oyuncuId in tumAntrenmanlar) {
-            tumAntrenmanlar[oyuncuId].ilerleme += 1;
-            if (tumAntrenmanlar[oyuncuId].ilerleme >= 10) {
-                tumAntrenmanlar[oyuncuId].seviye += 1;
-                tumAntrenmanlar[oyuncuId].ilerleme = 0;
-            }
-        }
-
-        fsModul.writeFileSync(dosyaYolu, JSON.stringify(tumAntrenmanlar, null, 4));
-        message.reply("🔄 **[TEST]** Saatlik döngü manuel olarak tetiklendi! Kayıtlı herkesin ilerlemesi +1 arttı.");
-    } catch (e) {
-        message.reply("Bir hata oluştu.");
-    }
-}
-    
-
-    // --- .paraekle Komutu (Sadece Yetkili Rol) ---
+    // --- .paraekle Komutu ---
     if (command === 'paraekle') {
         if (!message.member.roles.cache.has(YETKILI_ROL_ID)) {
             return message.reply('Bu komutu kullanmak için gerekli yetkili rolüne sahip değilsiniz.');
@@ -287,11 +221,10 @@ if (command === 'saatliktetikle') {
 
         const hedefPara = bakiyeGetir(hedef.id);
         hedefPara.cash += miktar;
-
         message.reply(`✅ ${hedef} kullanıcısının Cash hesabına **${miktar}** eklendi!`);
     }
 
-    // --- .paracikar Komutu (Sadece Yetkili Rol) ---
+    // --- .paracikar Komutu ---
     if (command === 'paracikar') {
         if (!message.member.roles.cache.has(YETKILI_ROL_ID)) {
             return message.reply('Bu komutu kullanmak için gerekli yetkili rolüne sahip değilsiniz.');
@@ -305,12 +238,11 @@ if (command === 'saatliktetikle') {
         }
 
         const hedefPara = bakiyeGetir(hedef.id);
-        hedefPara.cash = Math.max(0, hedefPara.cash - miktar); // Parası eksiye düşmesin diye
-
+        hedefPara.cash = Math.max(0, hedefPara.cash - miktar);
         message.reply(`📉 ${hedef} kullanıcısının Cash hesabından **${miktar}** çıkarıldı!`);
     }
 
-    // --- .send Komutu (Herkes kullanabilir) ---
+    // --- .send Komutu ---
     if (command === 'send') {
         const hedef = message.mentions.users.first();
         const miktar = parseInt(args[1]);
@@ -330,14 +262,12 @@ if (command === 'saatliktetikle') {
 
         gonderenPara.cash -= miktar;
         alanPara.cash += miktar;
-
         message.reply(`💸 ${message.author}, ${hedef} kullanıcısına başarıyla **${miktar}** gönderdi!`);
     }
 });
 
 // --- TICKET SİSTEMİ (Interaction Yönetimi) ---
 client.on('interactionCreate', async (interaction) => {
-    // 1. Slash Komutu ile kurulum tetiklenirse
     if (interaction.isChatInputCommand()) {
         if (interaction.commandName === 'ticket-kurulum') {
             if (!interaction.member.roles.cache.has(YETKILI_ROL_ID) && !interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
@@ -360,10 +290,17 @@ client.on('interactionCreate', async (interaction) => {
         }
     }
 
-    // 2. Butonlara Tıklanınca Ticket Kanalı Açma
     if (interaction.isButton()) {
         const customId = interaction.customId;
         if (!customId.startsWith('ticket_')) return;
+
+        if (customId === 'ticket_kapat') {
+            await interaction.reply({ content: 'Bu kanal 5 saniye içinde siliniyor...' });
+            setTimeout(async () => {
+                try { await interaction.channel.delete(); } catch (err) {}
+            }, 5000);
+            return;
+        }
 
         let ticketTuru = "";
         if (customId === 'ticket_sikayet') ticketTuru = "Şikayet";
@@ -372,23 +309,13 @@ client.on('interactionCreate', async (interaction) => {
 
         await interaction.reply({ content: 'Biletiniz oluşturuluyor, lütfen bekleyin...', ephemeral: true });
 
-        // Yeni kanal açma işlemi
         const kanal = await interaction.guild.channels.create({
             name: `ticket-${ticketTuru.toLowerCase()}-${interaction.user.username}`,
             type: ChannelType.GuildText,
             permissionOverwrites: [
-                {
-                    id: interaction.guild.roles.everyone.id,
-                    deny: [PermissionsBitField.Flags.ViewChannel], // Herkese kapat
-                },
-                {
-                    id: interaction.user.id,
-                    allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory], // Açan kişiye aç
-                },
-                {
-                    id: YETKILI_ROL_ID,
-                    allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory], // Yetkiliye aç
-                }
+                { id: interaction.guild.roles.everyone.id, deny: [PermissionsBitField.Flags.ViewChannel] },
+                { id: interaction.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory] },
+                { id: YETKILI_ROL_ID, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory] }
             ],
         });
 
@@ -404,19 +331,7 @@ client.on('interactionCreate', async (interaction) => {
         await kanal.send({ content: `${interaction.user} & <@&${YETKILI_ROL_ID}>`, embeds: [ticketEmbed], components: [kapatRow] });
         await interaction.editReply({ content: `Biletiniz başarıyla açıldı: ${kanal}`, ephemeral: true });
     }
-
-    // 3. Ticket Kapatma Butonu tetiklenirse
-    if (interaction.isButton() && interaction.customId === 'ticket_kapat') {
-        await interaction.reply({ content: 'Bu kanal 5 saniye içinde siliniyor...' });
-        setTimeout(async () => {
-            try {
-                await interaction.channel.delete();
-            } catch (err) {
-                console.log("Kanal zaten silinmiş veya silinemedi.");
-            }
-        }, 5000);
-    }
 });
 
 client.login(process.env.TOKEN);
-            
+    
