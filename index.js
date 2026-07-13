@@ -246,6 +246,32 @@ if (command === 'ekle') {
         message.reply({ embeds: [embed] });
     }
 
+// Sadece sistemi denemek için test komutu
+if (command === 'saatliktetikle') {
+    const fsModul = require('fs');
+    const dosyaYolu = './antrenmanlar.json';
+
+    if (!fsModul.existsSync(dosyaYolu)) return message.reply("Kayıtlı antrenman dosyası bulunamadı.");
+
+    try {
+        let tumAntrenmanlar = JSON.parse(fsModul.readFileSync(dosyaYolu, 'utf8'));
+
+        for (let oyuncuId in tumAntrenmanlar) {
+            tumAntrenmanlar[oyuncuId].ilerleme += 1;
+            if (tumAntrenmanlar[oyuncuId].ilerleme >= 10) {
+                tumAntrenmanlar[oyuncuId].seviye += 1;
+                tumAntrenmanlar[oyuncuId].ilerleme = 0;
+            }
+        }
+
+        fsModul.writeFileSync(dosyaYolu, JSON.stringify(tumAntrenmanlar, null, 4));
+        message.reply("🔄 **[TEST]** Saatlik döngü manuel olarak tetiklendi! Kayıtlı herkesin ilerlemesi +1 arttı.");
+    } catch (e) {
+        message.reply("Bir hata oluştu.");
+    }
+}
+    
+
     // --- .paraekle Komutu (Sadece Yetkili Rol) ---
     if (command === 'paraekle') {
         if (!message.member.roles.cache.has(YETKILI_ROL_ID)) {
