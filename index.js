@@ -95,44 +95,55 @@ client.on('messageCreate', async (message) => {
     }
 
     // --- .ant Komutu (Her saat 1 kez) ---
-    // Kodunun içindeki messageCreate eventinde komutların olduğu yere ekle:
+    // .antrenman veya .ant komutu
 if (command === 'antrenman' || command === 'idman') {
+    // Mesajda etiketlenen oyuncu veya komutu yazan kişi
     const hedefOyuncu = message.mentions.users.first() || message.author;
     const oyuncuId = hedefOyuncu.id;
+    const dosyaYolu = './antrenmanlar.json';
 
-    // Her oyuncunun antrenman verisini tutmak için basit bir veritabanı objesi (kodun en üstüne de koyabilirsin)
-    if (!global.antrenmanVerisi) global.antrenmanVerisi = new Map();
+    // 1. JSON Dosyasından Mevcut Verileri Güvenli Bir Şekilde Oku
+    let tumAntrenmanlar = {};
+    if (fs.existsSync(dosyaYolu)) {
+        try {
+            tumAntrenmanlar = JSON.parse(fs.readFileSync(dosyaYolu, 'utf8'));
+        } catch (err) {
+            tumAntrenmanlar = {};
+        }
+    }
 
-    let oyuncuProfil = global.antrenmanVerisi.get(oyuncuId) || { seviye: 1, ilerleme: 0 };
+    // 2. Oyuncunun profilini kontrol et, yoksa sıfırdan oluştur
+    if (!tumAntrenmanlar[oyuncuId]) {
+        tumAntrenmanlar[oyuncuId] = { seviye: 1, ilerleme: 0 };
+    }
 
-    // İlerlemeyi GERİYE DEĞİL, DOĞRUCA İLERİYE GÖTÜRÜYORUZ (+1)
-    oyuncuProfililerleme += 1; 
-    const hedefIlerleme = 10; // Her seviye için gereken antrenman sayısı
-
+    // 3. İlerlemeyi KESİNLİKLE GERİYE DEĞİL, SADECE İLERİYE GÖTÜR (+1)
+    tumAntrenmanlar[oyuncuId].ilerleme += 1;
+    const hedefIlerleme = 10; // Her seviye için gereken antrenman
     let seviyeAtladiMi = false;
 
-    // Eğer 10/10 olduysa seviye atlat ve sayacı sıfırla
-    if (oyuncuProfil.ilerleme >= hedefIlerleme) {
-        oyuncuProfil.seviye += 1;
-        oyuncuProfil.ilerleme = 0;
+    // 4. Eğer 10/10 olduysa seviyeyi arttır ve sayacı temizle
+    if (tumAntrenmanlar[oyuncuId].ilerleme >= hedefIlerleme) {
+        tumAntrenmanlar[oyuncuId].seviye += 1;
+        tumAntrenmanlar[oyuncuId].ilerleme = 0;
         seviyeAtladiMi = true;
     }
 
-    // Güncel veriyi kaydet
-    global.antrenmanVerisi.set(oyuncuId, oyuncuProfil);
+    // 5. Güncel verileri dosyaya kalıcı olarak KAYDET (Bot kapansa da silinmez)
+    fs.writeFileSync(dosyaYolu, JSON.stringify(tumAntrenmanlar, null, 4));
 
-    // Kullanıcıya bildirim gönder
+    // 6. Discord'a Sonucu Gönder
     if (seviyeAtladiMi) {
-        const SeviyeEmbed = new EmbedBuilder()
+        const seviyeEmbed = new EmbedBuilder()
             .setTitle('⚡ SEVİYE ATLADI!')
-            .setDescription(`🎉 Tebrikler ${hedefOyuncu}! Antrenman programını tamamladın ve **Seviye ${oyuncuProfil.seviye}** oldun!`)
+            .setDescription(`🎉 Müjde! ${hedefOyuncu} antrenman programını başarıyla tamamladı ve **Seviye ${tumAntrenmanlar[oyuncuId].seviye}** oldu!`)
             .setColor('#2ecc71');
-        return message.reply({ embeds: [SeviyeEmbed] });
+        return message.reply({ embeds: [seviyeEmbed] });
     } else {
         const antrenmanEmbed = new EmbedBuilder()
-            .setTitle('💪 ANTRENMAN YAPILDI')
-            .setDescription(`🏃‍♂️ ${hedefOyuncu} sıkı çalışıyor!\n\n📊 **Mevcut Durum:** Seviye ${oyuncuProfil.seviye}\n📈 **Gelişim Süreci:** \`[ ${oyuncuProfil.ilerleme} / ${hedefIlerleme} ]\``)
-            .setFooter({ text: 'Gelişmek için çalışmaya devam et!' })
+            .setTitle('💪 ANTRENMAN BAŞARILI')
+            .setDescription(`🏃‍♂️ ${hedefOyuncu} sıkı bir idman daha çıkardı!\n\n📊 **Mevcut Seviye:** \` ${tumAntrenmanlar[oyuncuId].seviye} \` \n📈 **İlerleme Durumu:** \`[ ${tumAntrenmanlar[oyuncuId].ilerleme} / ${hedefIlerleme} ]\``)
+            .setFooter({ text: 'Geri gitme düzeltildi. Hedefe doğru emin adımlarla!' })
             .setColor('#3498db');
         return message.reply({ embeds: [antrenmanEmbed] });
     }
