@@ -94,51 +94,42 @@ client.on('messageCreate', async (message) => {
         return message.reply({ embeds: [embed] });
     }
 
-                // .antrenman komutu
+                // ==========================================
+// 🏋️‍♂️ ANTRENMAN SİSTEMİ (BİRLEŞİK SÜRÜM)
+// ==========================================
+
 if (command === 'antrenman' || command === 'idman') {
     const hedefOyuncu = message.mentions.users.first() || message.author;
     const oyuncuId = hedefOyuncu.id;
     const dosyaYolu = './antrenmanlar.json';
-
-    // 1. fs modülünü yerel olarak sağlama alalım (Yukarıda unutulduysa bile hata vermez)
     const fsModul = require('fs');
 
-    // 2. Dosya kontrolü ve oluşturma
     let tumAntrenmanlar = {};
     if (fsModul.existsSync(dosyaYolu)) {
         try {
             const dosyaIcerigi = fsModul.readFileSync(dosyaYolu, 'utf8');
             tumAntrenmanlar = dosyaIcerigi ? JSON.parse(dosyaIcerigi) : {};
-        } catch (err) {
-            tumAntrenmanlar = {};
-        }
+        } catch (err) { tumAntrenmanlar = {}; }
     }
 
-    // 3. Oyuncu kontrolü
     if (!tumAntrenmanlar[oyuncuId]) {
         tumAntrenmanlar[oyuncuId] = { seviye: 1, ilerleme: 0 };
     }
 
-    // 4. İlerlemeyi kesin olarak +1 arttır
     tumAntrenmanlar[oyuncuId].ilerleme += 1;
     const hedefIlerleme = 10;
     let seviyeAtladiMi = false;
 
-    // 5. Seviye atlama kontrolü
     if (tumAntrenmanlar[oyuncuId].ilerleme >= hedefIlerleme) {
         tumAntrenmanlar[oyuncuId].seviye += 1;
         tumAntrenmanlar[oyuncuId].ilerleme = 0;
         seviyeAtladiMi = true;
     }
 
-    // 6. Dosyaya güvenli kaydet
     try {
         fsModul.writeFileSync(dosyaYolu, JSON.stringify(tumAntrenmanlar, null, 4));
-    } catch (writeErr) {
-        console.error("Dosya yazma hatası:", writeErr);
-    }
+    } catch (writeErr) { console.error(writeErr); }
 
-    // 7. Mesaj Gönderme
     if (seviyeAtladiMi) {
         const seviyeEmbed = new EmbedBuilder()
             .setTitle('⚡ SEVİYE ATLADI!')
@@ -154,6 +145,58 @@ if (command === 'antrenman' || command === 'idman') {
     }
 }
 
+// 1. İSTEDİĞİN KISA KOMUT: .ant
+if (command === 'ant') {
+    const fsModul = require('fs');
+    const hedefOyuncu = message.mentions.users.first() || message.author;
+    const oyuncuId = hedefOyuncu.id;
+    const dosyaYolu = './antrenmanlar.json';
+
+    let tumAntrenmanlar = {};
+    if (fsModul.existsSync(dosyaYolu)) {
+        try { tumAntrenmanlar = JSON.parse(fsModul.readFileSync(dosyaYolu, 'utf8')); } catch (e) { tumAntrenmanlar = {}; }
+    }
+
+    if (!tumAntrenmanlar[oyuncuId]) tumAntrenmanlar[oyuncuId] = { seviye: 1, ilerleme: 0 };
+
+    tumAntrenmanlar[oyuncuId].ilerleme += 1;
+    let seviyeAtladiMi = false;
+
+    if (tumAntrenmanlar[oyuncuId].ilerleme >= 10) {
+        tumAntrenmanlar[oyuncuId].seviye += 1;
+        tumAntrenmanlar[oyuncuId].ilerleme = 0;
+        seviyeAtladiMi = true;
+    }
+
+    fsModul.writeFileSync(dosyaYolu, JSON.stringify(tumAntrenmanlar, null, 4));
+
+    if (seviyeAtladiMi) {
+        message.reply(`⚡ **${hedefOyuncu.username}** antrenmanı tamamladı ve **Seviye ${tumAntrenmanlar[oyuncuId].seviye}** oldu!`);
+    } else {
+        message.reply(`💪 Antrenman başarılı! İlerleme: \`[ ${tumAntrenmanlar[oyuncuId].ilerleme} / 10 ]\``);
+    }
+}
+
+// 2. İSTEDİĞİN EKLEME KOMUTU: .ekle
+if (command === 'ekle') {
+    const fsModul = require('fs');
+    const hedef = message.mentions.members.first();
+    const mevki = args[1];
+
+    if (!hedef || !mevki) return message.reply('Kullanım: `.ekle @kullanici Mevki`');
+
+    const dosyaYolu = './kadro.json';
+    let kadro = {};
+    if (fsModul.existsSync(dosyaYolu)) {
+        try { kadro = JSON.parse(fsModul.readFileSync(dosyaYolu, 'utf8')); } catch (e) { kadro = {}; }
+    }
+
+    kadro[hedef.id] = { isim: hedef.user.username, mevki: mevki.toUpperCase() };
+    fsModul.writeFileSync(dosyaYolu, JSON.stringify(kadro, null, 4));
+
+    message.reply(`✅ **${hedef.user.username}** [${mevki.toUpperCase()}] kadroya başarıyla eklendi!`);
+}
+
 
     // --- .pen Komutu (Her saat 1 kez) ---
     if (command === 'pen') {
@@ -167,7 +210,6 @@ if (command === 'antrenman' || command === 'idman') {
 
         const sonuclar = [
             "🧤 **Kurtarış!** Kaleci muhteşem uzandı ve topu çıkardı!",
-            "🛡️ **Defans!** Barajdan veya araya giren savunmadan döndü!",
             "⚽ **GOOOL!** Top tam doksana gitti, harika gol!",
             "📐 **Direkt!** Top çat diye direkten geri döndü!",
             "🏃‍♂️ **Dışarı!** Top az farkla auta çıktı!"
