@@ -175,7 +175,6 @@ client.on('messageCreate', async (message) => {
 
         const sonuclar = [
             "🧤 **Kurtarış!** Kaleci muhteşem uzandı ve topu çıkardı!",
-            "🛡️ **Defans!** Barajdan veya araya giren savunmadan döndü!",
             "⚽ **GOOOL!** Top tam doksana gitti, harika gol!",
             "📐 **Direkt!** Top çat diye direkten geri döndü!",
             "🏃‍♂️ **Dışarı!** Top az farkla auta çıktı!"
