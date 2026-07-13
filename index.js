@@ -95,29 +95,49 @@ client.on('messageCreate', async (message) => {
     }
 
     // --- .ant Komutu (Her saat 1 kez) ---
-    if (command === 'ant') {
-        const simdi = Date.now();
-        const cd = cooldowns.get(`${userId}-ant`) || 0;
-        
-        if (simdi < cd) {
-            const kalan = Math.ceil((cd - simdi) / 1000 / 60);
-            return message.reply(`Bu komutu tekrar kullanmak için **${kalan} dakika** beklemelisin.`);
-        }
+    // Kodunun içindeki messageCreate eventinde komutların olduğu yere ekle:
+if (command === 'antrenman' || command === 'idman') {
+    const hedefOyuncu = message.mentions.users.first() || message.author;
+    const oyuncuId = hedefOyuncu.id;
 
-        let mevcutSkor = antrenmanDurumu.get(userId) || 0;
-        mevcutSkor += 1;
+    // Her oyuncunun antrenman verisini tutmak için basit bir veritabanı objesi (kodun en üstüne de koyabilirsin)
+    if (!global.antrenmanVerisi) global.antrenmanVerisi = new Map();
 
-        if (mevcutSkor >= 10) {
-            antrenmanDurumu.set(userId, 0);
-            message.reply("🏋️ **Antrenman Tamamlandı!** Skorun **10/10** oldu ve antrenmanın sıfırlandı!");
-        } else {
-            antrenmanDurumu.set(userId, mevcutSkor);
-            message.reply(`🏋️ **Antrenman Yapıldı!** Mevcut Gelişim: **${mevcutSkor}/10**`);
-        }
+    let oyuncuProfil = global.antrenmanVerisi.get(oyuncuId) || { seviye: 1, ilerleme: 0 };
 
-        // 1 saat cooldown (60 dakika * 60 saniye * 1000 ms)
-        cooldowns.set(`${userId}-ant`, simdi + (60 * 60 * 1000));
+    // İlerlemeyi GERİYE DEĞİL, DOĞRUCA İLERİYE GÖTÜRÜYORUZ (+1)
+    oyuncuProfililerleme += 1; 
+    const hedefIlerleme = 10; // Her seviye için gereken antrenman sayısı
+
+    let seviyeAtladiMi = false;
+
+    // Eğer 10/10 olduysa seviye atlat ve sayacı sıfırla
+    if (oyuncuProfil.ilerleme >= hedefIlerleme) {
+        oyuncuProfil.seviye += 1;
+        oyuncuProfil.ilerleme = 0;
+        seviyeAtladiMi = true;
     }
+
+    // Güncel veriyi kaydet
+    global.antrenmanVerisi.set(oyuncuId, oyuncuProfil);
+
+    // Kullanıcıya bildirim gönder
+    if (seviyeAtladiMi) {
+        const SeviyeEmbed = new EmbedBuilder()
+            .setTitle('⚡ SEVİYE ATLADI!')
+            .setDescription(`🎉 Tebrikler ${hedefOyuncu}! Antrenman programını tamamladın ve **Seviye ${oyuncuProfil.seviye}** oldun!`)
+            .setColor('#2ecc71');
+        return message.reply({ embeds: [SeviyeEmbed] });
+    } else {
+        const antrenmanEmbed = new EmbedBuilder()
+            .setTitle('💪 ANTRENMAN YAPILDI')
+            .setDescription(`🏃‍♂️ ${hedefOyuncu} sıkı çalışıyor!\n\n📊 **Mevcut Durum:** Seviye ${oyuncuProfil.seviye}\n📈 **Gelişim Süreci:** \`[ ${oyuncuProfil.ilerleme} / ${hedefIlerleme} ]\``)
+            .setFooter({ text: 'Gelişmek için çalışmaya devam et!' })
+            .setColor('#3498db');
+        return message.reply({ embeds: [antrenmanEmbed] });
+    }
+}
+
 
     // --- .pen Komutu (Her saat 1 kez) ---
     if (command === 'pen') {
