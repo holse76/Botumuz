@@ -1,3 +1,4 @@
+
 const { 
     Client, 
     GatewayIntentBits, 
@@ -9,19 +10,6 @@ const {
     EmbedBuilder,
     AttachmentBuilder
 } = require('discord.js');
-
-// Railway'in "Application Error" vermemesi için gerekli web sunucusu
-const express = require('express');
-const app = express();
-const PORT = process.env.PORT || 3000;
-
-app.get('/', (req, res) => {
-    res.send('Bot aktif ve çalışıyor!');
-});
-
-app.listen(PORT, () => {
-    console.log(`Web sunucusu ${PORT} portunda çalışıyor.`);
-});
 
 const client = new Client({
     intents: [
@@ -146,7 +134,7 @@ client.on('interactionCreate', async interaction => {
             console.error("Dosya gönderilemedi:", err);
         }
 
-        // Kanalı doğrudan sil (Botun "Kanalı Yönet" yetkisi olduğundan emin olun)
+        // Kanalı doğrudan sil
         try {
             await interaction.channel.delete();
         } catch (err) {
@@ -156,4 +144,4 @@ client.on('interactionCreate', async interaction => {
 });
 
 client.login(process.env.TOKEN);
-
+            
