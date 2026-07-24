@@ -1,4 +1,3 @@
-
 const { 
     Client, 
     GatewayIntentBits, 
@@ -23,7 +22,6 @@ const client = new Client({
 // Belirttiğiniz ID Ayarları
 const CONFIG = {
     ticketCategory: "1530167947639787680", // Ticket kanallarının açılacağı kategori ID
-    setupLogRole: "1522274570986586172",  // Kurulumu yapabilecek / yetkili rol
     supportRoles: ["1522707337473687633", "1522699609506316338"], // Ticket'a bakacak yetkili roller
     transcriptChannel: "1530168154599198811" // Kapatınca dosyanın gideceği hedef ID
 };
@@ -32,9 +30,9 @@ client.once('ready', () => {
     console.log(`Bot aktif: ${client.user.tag}`);
 });
 
-// /Ticket-kurulum Komutu
+// .ticketkur20399e9r Komutu
 client.on('messageCreate', async message => {
-    if (message.content === '/Ticket-kurulum') {
+    if (message.content === '.ticketkur20399e9r') {
         const embed = new EmbedBuilder()
             .setTitle("🎫 Destek & İşlem Merkezi")
             .setDescription("Aşağıdaki butonları kullanarak destek talebi (ticket) oluşturabilirsiniz.")
@@ -144,4 +142,4 @@ client.on('interactionCreate', async interaction => {
 });
 
 client.login(process.env.TOKEN);
-            
+
