@@ -1,4 +1,4 @@
-const { 
+    const { 
     Client, 
     GatewayIntentBits, 
     ActionRowBuilder, 
@@ -24,7 +24,7 @@ const CONFIG = {
     ticketCategory: "1530167947639787680", // Ticket kanallarının açılacağı kategori ID
     setupLogRole: "1522274570986586172",  // Kurulumu yapabilecek / yetkili rol
     supportRoles: ["1522707337473687633", "1522699609506316338"], // Ticket'a bakacak yetkili roller
-    transcriptChannel: "1530168154599198811" // Kapatınca dosyanın gideceği hedef ID
+    transcriptChannel: "1530168154599198811" // Kapatınca dosyanın gideceği kanal/hedef ID
 };
 
 client.once('ready', () => {
@@ -102,6 +102,7 @@ client.on('interactionCreate', async interaction => {
             new ButtonBuilder().setCustomId('ticket_close').setLabel('Kapat / Dosya Kaydet').setStyle(ButtonStyle.Danger)
         );
 
+        // Kanal içine hem rolleri etiketleyerek mesaj atılır hem de buton eklenir
         await channel.send({ 
             content: `${roleMentions} yeni bir ticket açıldı!`, 
             embeds: [controlEmbed], 
@@ -111,9 +112,9 @@ client.on('interactionCreate', async interaction => {
         await interaction.reply({ content: `Ticket kanalınız oluşturuldu: ${channel}`, ephemeral: true });
     }
 
-    // Ticket Kapatma, Dosyayı Gönderme ve Kanalı Silme
+        // Ticket Kapatma ve Dosyayı Gönderme
     if (interaction.customId === 'ticket_close') {
-        await interaction.reply({ content: "Ticket kapatılıyor, dosya kaydediliyor ve kanal siliniyor...", ephemeral: true });
+        await interaction.reply({ content: "Ticket kapatılıyor ve dosya kaydediliyor...", ephemeral: true });
 
         const messages = await interaction.channel.messages.fetch({ limit: 100 });
         const transcript = messages.reverse().map(m => `[${m.createdAt.toLocaleString()}] ${m.author.tag}: ${m.content}`).join('\n');
@@ -122,7 +123,7 @@ client.on('interactionCreate', async interaction => {
         const attachment = new AttachmentBuilder(buffer, { name: `transcript-${interaction.channel.name}.txt` });
 
         try {
-            const targetChannel = await interaction.guild.channels.fetch(CONFIG.transcriptChannel);
+            const targetChannel = await interaction.guild.channels.fetch("1530168154599198811");
             if (targetChannel) {
                 await targetChannel.send({
                     content: `📁 **${interaction.channel.name}** adlı ticket kapatıldı. Konuşma dökümanı:`,
@@ -133,14 +134,14 @@ client.on('interactionCreate', async interaction => {
             console.error("Dosya gönderilemedi:", err);
         }
 
-        // Kanalı doğrudan sil (Botun "Kanalı Yönet" yetkisi olduğundan emin olun)
+        // Kanalı hemen sil (Hata almamak için try-catch eklendi)
         try {
             await interaction.channel.delete();
         } catch (err) {
-            console.error("Kanal silinemedi:", err);
+            console.error("Kanal silinemedi, botun yetkisini kontrol edin:", err);
         }
     }
-});
+}}:
 
 client.login(process.env.TOKEN);
-            
+
