@@ -1,3 +1,4 @@
+
 const { 
     Client, 
     GatewayIntentBits, 
@@ -58,7 +59,7 @@ client.on('messageCreate', async message => {
 client.on('interactionCreate', async interaction => {
     if (!interaction.isButton()) return;
 
-    if (interaction.customId.startsWith('ticket_')) {
+    if (interaction.customId.startsWith('ticket_') && interaction.customId !== 'ticket_close') {
         const ticketType = interaction.customId.replace('ticket_', '');
         const guild = interaction.guild;
 
@@ -98,7 +99,7 @@ client.on('interactionCreate', async interaction => {
             .setColor(0x5865F2);
 
         const closeRow = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('ticket_close').setLabel('Kapat / Dosya Kaydet').setStyle(ButtonStyle.Danger)
+            new ButtonBuilder().setCustomId('ticket_close').setLabel('Kapat ve Sil').setStyle(ButtonStyle.Danger)
         );
 
         await channel.send({ 
@@ -110,9 +111,9 @@ client.on('interactionCreate', async interaction => {
         await interaction.reply({ content: `Ticket kanalınız oluşturuldu: ${channel}`, ephemeral: true });
     }
 
-    // Ticket Kapatma, Dosyayı Gönderme ve Kanalı Silme
+    // Ticket Kapatma ve Kanalı Doğrudan Silme
     if (interaction.customId === 'ticket_close') {
-        await interaction.reply({ content: "Ticket kapatılıyor, dosya kaydediliyor ve kanal siliniyor...", ephemeral: true });
+        await interaction.reply({ content: "Ticket kapatılıyor ve kanal siliniyor...", ephemeral: true });
 
         const messages = await interaction.channel.messages.fetch({ limit: 100 });
         const transcript = messages.reverse().map(m => `[${m.createdAt.toLocaleString()}] ${m.author.tag}: ${m.content}`).join('\n');
@@ -132,7 +133,7 @@ client.on('interactionCreate', async interaction => {
             console.error("Dosya gönderilemedi:", err);
         }
 
-        // Kanalı doğrudan sil
+        // Kanalı direkt sil
         try {
             await interaction.channel.delete();
         } catch (err) {
@@ -142,4 +143,3 @@ client.on('interactionCreate', async interaction => {
 });
 
 client.login(process.env.TOKEN);
-
