@@ -24,7 +24,7 @@ const client = new Client({
 const CONFIG = {
     ticketCategory: "1530512051527614604", // Ticket kanallarının açılacağı kategori ID
     supportRoles: ["1522707337473687633", "1522699609506316338"], // Ticket'a bakacak yetkili roller
-    transcriptChannel: "1530168154599198811" // Kapatınca dosyanın gideceği hedef ID
+    transcriptChannel: "1530514223153811566" // Kapatınca dosyanın gideceği hedef ID
 };
 
 client.once('ready', () => {
