@@ -82,7 +82,7 @@ client.on('interactionCreate', async interaction => {
             });
         });
 
-        // Ticket kanalını 1530167947639787680 ID'li kategori altında açma
+        // Ticket kanalını 1530512051527614604 ID'li kategori altında açma
         const channel = await guild.channels.create({
             name: `${ticketType}-${interaction.user.username}`,
             type: ChannelType.GuildText,
